@@ -7,6 +7,7 @@ import Phaser from 'phaser';
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
+
 export class GameComponent implements OnInit {
   phaserGame: Phaser.Game;
   config: Phaser.Types.Core.GameConfig;
@@ -16,7 +17,7 @@ export class GameComponent implements OnInit {
       type: Phaser.AUTO,
       height: 600,
       width: 800,
-      scene: [ MainScene ],
+      scene: [ WelcomeScene, GameScene, ScoreScene ],
       parent: 'gameContainer',
       physics: {
         default: 'arcade',
@@ -33,7 +34,7 @@ export class GameComponent implements OnInit {
   }
 }
 
-class MainScene extends Phaser.Scene {
+class GameScene extends Phaser.Scene {
   delta: number;
   lastStarTime: number;
   starsCaught: number;
@@ -42,7 +43,7 @@ class MainScene extends Phaser.Scene {
   info: Phaser.GameObjects.Text;
 
   constructor() {
-    super({ key: 'main' });
+    super({ key: 'GameScene' });
   }
 
   init(): void {
@@ -84,41 +85,89 @@ class MainScene extends Phaser.Scene {
       this.emitStar();
     }
 
-    this.info.text =
-      this.starsCaught + ' caught - ' +
-      this.starsFallen + ' fallen (max 3)';
-    }
+    this.info.text = this.starsCaught + ' caught - ' + this.starsFallen + ' fallen (max 3)';
+  }
 
-    private onClick(star: Phaser.Physics.Arcade.Image): () => void {
-      return function(): void {
-        star.setTint(0x00ff00);
-        star.setVelocity(0, 0);
-        this.starsCaught += 1;
-        this.time.delayedCall(100, () => {
-          star.destroy();
-        }, [star], this);
-      };
-    }
+  private onClick(star: Phaser.Physics.Arcade.Image): () => void {
+    return function(): void {
+      star.setTint(0x00ff00);
+      star.setVelocity(0, 0);
+      this.starsCaught += 1;
+      this.time.delayedCall(100, () => {
+        star.destroy();
+      }, [star], this);
+    };
+  }
 
-    private onFall(star: Phaser.Physics.Arcade.Image): () => void {
-      return function () {
-        star.setTint(0xff0000);
-        this.starsFallen += 1;
-        this.time.delayedCall(100, () => {
-          star.destroy();
-        }, [star], this);
-      };
-    }
+  private onFall(star: Phaser.Physics.Arcade.Image): () => void {
+    return function() {
+      star.setTint(0xff0000);
+      this.starsFallen += 1;
+      this.time.delayedCall(10, function() {
+        star.destroy();
+        if (this.starsFallen > 2) {
+          this.scene.start('ScoreScene', { starsCaught: this.starsCaught });
+        }
+      }, [star], this);
+    };
+  }
 
-    private emitStar(): void {
-      let star: Phaser.Physics.Arcade.Image;
-      const x = Phaser.Math.Between(25, 775);
-      const y = 26;
-      star = this.physics.add.image(x, y, 'star');
-      star.setDisplaySize(50, 50);
-      star.setVelocity(0, 200);
-      star.setInteractive();
-      star.on('pointerdown', this.onClick(star), this);
-      this.physics.add.collider(star, this.sand, this.onFall(star), null, this);
-    }
+  private emitStar(): void {
+    let star: Phaser.Physics.Arcade.Image;
+    const x = Phaser.Math.Between(25, 775);
+    const y = 26;
+    star = this.physics.add.image(x, y, 'star');
+    star.setDisplaySize(50, 50);
+    star.setVelocity(0, 200);
+    star.setInteractive();
+    star.on('pointerdown', this.onClick(star), this);
+    this.physics.add.collider(star, this.sand, this.onFall(star), null, this);
+  }
+}
+
+class WelcomeScene extends Phaser.Scene {
+  title: Phaser.GameObjects.Text;
+  hint: Phaser.GameObjects.Text;
+
+  constructor() {
+    super({
+      key: 'WelcomeScene'
+    });
+  }
+
+  create(): void {
+    const titleText = 'Starfall';
+    this.title = this.add.text(150, 200, titleText, { font: '128px Arial Bold', fill: '#FBFBAC' });
+    const hintText = 'Click to start';
+    this.hint = this.add.text(300, 350, hintText, { font: '24px Arial Bold', fill: '#FBFBAC' });
+    this.input.on('pointerdown', function(/*pointer*/) {
+      this.scene.start('GameScene');
+    }, this);
+  }
+}
+
+class ScoreScene extends Phaser.Scene {
+  score: number;
+  result: Phaser.GameObjects.Text;
+  hint: Phaser.GameObjects.Text;
+
+  constructor() {
+    super({
+      key: 'ScoreScene'
+    });
+  }
+
+  init(params: any): void {
+    this.score = params.starsCaught;
+  }
+
+  create(): void {
+    const resultText: string = 'Your score is ' + this.score + '!';
+    this.result = this.add.text(200, 250, resultText, { font: '48px Arial Bold', fill: '#FBFBAC' });
+    const hintText = 'Click to restart';
+    this.hint = this.add.text(300, 350, hintText, { font: '24px Arial Bold', fill: '#FBFBAC' });
+    this.input.on('pointerdown', function(/*pointer*/) {
+      this.scene.start('WelcomeScene');
+    }, this);
+  }
 }
